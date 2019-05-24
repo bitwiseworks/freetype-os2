@@ -1,0 +1,8 @@
+builds/unix/aclocal.m4
+builds/unix/autom4te.cache/
+builds/unix/config.guess
+builds/unix/config.sub
+builds/unix/configure
+builds/unix/configure.ac
+builds/unix/install-sh
+builds/unix/ltmain.sh
