@@ -22,7 +22,7 @@
 #include <ctype.h>
 
 #define  PROGRAM_NAME     "apinames"
-#define  PROGRAM_VERSION  "0.2"
+#define  PROGRAM_VERSION  "0.3"
 
 #define  LINEBUFF_SIZE  1024
 
@@ -33,7 +33,8 @@ typedef enum  OutputFormat_
   OUTPUT_BORLAND_DEF,   /* output a Windows .DEF file for Borland C++         */
   OUTPUT_WATCOM_LBC,    /* output a Watcom Linker Command File                */
   OUTPUT_OS2_DEF,       /* output an OS/2 .DEF file for GCC                   */
-  OUTPUT_NETWARE_IMP    /* output a NetWare ImportFile                        */
+  OUTPUT_NETWARE_IMP,   /* output a NetWare ImportFile                        */
+  OUTPUT_GNU_VERMAP     /* output a version map for GNU or Solaris linker     */
 
 } OutputFormat;
 
@@ -199,43 +200,49 @@ names_dump( FILE*         out,
       }
       break;
 
-      case OUTPUT_OS2_DEF:
+    case OUTPUT_OS2_DEF:
       {
-          /* we must omit the .dll suffix from the library name */
-          char         temp[512];
-          const char*  dot;
+        /* we must omit the .dll suffix from the library name */
+        char         temp[512];
+        const char*  dot;
 
+        if ( dll_name == NULL )
+        {
+          fprintf( stderr,
+                   "you must provide a DLL name with the -d option!\n" );
+          exit( 4 );
+        }
 
-          if ( dll_name == NULL )
-          {
-            fprintf( stderr,
-                     "you must provide a DLL name with the -d option!\n" );
-            exit( 4 );
-          }
+        dot = strchr( dll_name, '.' );
+        if ( dot != NULL )
+        {
+          int  len = dot - dll_name;
 
-          dot = strchr( dll_name, '.' );
-          if ( dot != NULL )
-          {
-            int  len = dot - dll_name;
+          if ( len > (int)( sizeof ( temp ) - 1 ) )
+            len = sizeof ( temp ) - 1;
 
+          memcpy( temp, dll_name, len );
+          temp[len] = 0;
 
-            if ( len > (int)( sizeof ( temp ) - 1 ) )
-              len = sizeof ( temp ) - 1;
+          dll_name = (const char*)temp;
+        }
 
-            memcpy( temp, dll_name, len );
-            temp[len] = 0;
-
-            dll_name = (const char*)temp;
-          }
-
-          fprintf( out, "LIBRARY %s INITINSTANCE TERMINSTANCE\n", dll_name );
-          fprintf( out, "DESCRIPTION \"FreeType 2 DLL\"\n" );
-          fprintf( out, "DATA MULTIPLE\n" );
-          fprintf( out, "EXPORTS\n" );
-          for ( nn = 0; nn < num_names; nn++ )
-            fprintf( out, "  _%s\n", the_names[nn].name );
-          }
-        break;
+        fprintf( out, "LIBRARY %s INITINSTANCE TERMINSTANCE\n", dll_name );
+        fprintf( out, "DESCRIPTION \"FreeType 2 DLL\"\n" );
+        fprintf( out, "DATA MULTIPLE\n" );
+        fprintf( out, "EXPORTS\n" );
+        for ( nn = 0; nn < num_names; nn++ )
+          fprintf( out, "  _%s\n", the_names[nn].name );
+      }
+      break;
+    case OUTPUT_GNU_VERMAP:
+      {
+        fprintf( out, "{\n\tglobal:\n" );
+        for ( nn = 0; nn < num_names; nn++ )
+          fprintf( out, "\t\t%s;\n", the_names[nn].name );
+        fprintf( out, "\tlocal:\n\t\t*;\n};\n" );
+      }
+      break;
 
     default:  /* LIST */
       for ( nn = 0; nn < num_names; nn++ )
@@ -363,6 +370,7 @@ usage( void )
    "           -wW    : output Watcom Linker Response File\n"
    "           -wO    : output OS/2 .DEF file for GCC\n"
    "           -wN    : output NetWare Import File\n"
+   "           -wL    : output version map for GNU or Solaris linker\n"
    "\n";
 
   fprintf( stderr,
@@ -453,6 +461,9 @@ int  main( int argc, const char* const*  argv )
           case 'O':
           case 'o':
             format = OUTPUT_OS2_DEF;
+
+          case 'L':
+            format = OUTPUT_GNU_VERMAP;
             break;
 
           case 0:
